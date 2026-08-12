@@ -1,0 +1,128 @@
+{
+  "name": "Tool_hora _trabajadas",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "Cliente"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -256,
+        0
+      ],
+      "id": "2acf4e1f-5ad7-4243-8287-1c6042a4e647",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "dataSourceId": {
+          "__rl": true,
+          "value": "3b414865-d5fa-804f-9d6a-000bb10fd38e",
+          "mode": "list",
+          "cachedResultName": "Formulario de ingreso de horas",
+          "cachedResultUrl": "https://app.notion.com/p/3b414865d5fa80f188d5c472c7496f98"
+        },
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Cliente (1)|rich_text",
+              "condition": "contains",
+              "richTextValue": "={{ $json.Cliente }}"
+            },
+            {
+              "key": "Status|status",
+              "condition": "equals",
+              "optionValue": "Facturar"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 3,
+      "position": [
+        -16,
+        0
+      ],
+      "id": "08c68dd8-1e15-40ed-b09c-f2e9144d5562",
+      "name": "Get many database pages",
+      "credentials": {
+        "notionApi": {
+          "id": "W4c85RV9TckbyNiu",
+          "name": "Notion account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Traduce las 2 fórmulas de Notion (Horas Oficina / Horas Extra) a partir de las \n// fechas crudas, para no depender del valor ya calculado por Notion (llega con delay).\n\nfunction parseNotionDate(iso) {\n  const m = iso.match(/^(\\d{4}-\\d{2}-\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(\\.\\d+)?([+-]\\d{2}:\\d{2}|Z)$/);\n  if (!m) return null;\n  const [, datePart, hh, mm, , , offset] = m;\n  return { date: new Date(iso), datePart, hour: parseInt(hh, 10), offset: offset === 'Z' ? '+00:00' : offset };\n}\nfunction atHour(parsed, hour) {\n  const hh = String(hour).padStart(2, '0');\n  return new Date(`${parsed.datePart}T${hh}:00:00.000${parsed.offset}`);\n}\nfunction minutosEntre(a, b) { return (b.getTime() - a.getTime()) / 60000; }\n\nfunction calcularHoras(fechaInicioISO, fechaFinISO) {\n  if (!fechaInicioISO || !fechaFinISO) return { horas_oficina: 0, horas_extra: 0 };\n  const inicio = parseNotionDate(fechaInicioISO);\n  const fin = parseNotionDate(fechaFinISO);\n  if (!inicio || !fin) return { horas_oficina: 0, horas_extra: 0 };\n\n  const cutoff18Inicio = atHour(inicio, 18);\n  const referencia18Fin = atHour(fin, 18);\n\n  let horas_oficina;\n  if (inicio.hour >= 18) horas_oficina = 0;\n  else if (fin.hour < 18) horas_oficina = Math.round((minutosEntre(inicio.date, fin.date) / 60) * 100) / 100;\n  else horas_oficina = Math.round((minutosEntre(inicio.date, cutoff18Inicio) / 60) * 100) / 100;\n\n  let horas_extra = 0;\n  if (fin.date > referencia18Fin) {\n    horas_extra = Math.round((minutosEntre(referencia18Fin, fin.date) / 60) * 100) / 100;\n  }\n  return { horas_oficina, horas_extra };\n}\n\n// Una fila por CADA entrada — sin agrupar por consultor\nconst rows = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  const consultor = Array.isArray(j.property_consultor) ? j.property_consultor[0] : j.property_consultor;\n  if (!consultor) continue;\n\n  const { horas_oficina, horas_extra } = calcularHoras(\n    j.property_fecha_inicio?.start,\n    j.property_fecha_fin?.start\n  );\n\n  rows.push({\n    json: {\n      consultor,\n      horas_oficina,\n      horas_extra,\n      ticket: j.property_ticket_asociado || '',\n      detalle_trabajo: j.property_detalle_trabajo || ''\n    }\n  });\n}\n\nreturn rows;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "47a5f913-1ad7-40f2-af64-372baf235b88",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "Cliente": "TAO"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Get many database pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many database pages": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "e604cdae-726b-489e-97f5-7bfacea0acfa",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d1a344a6154f990bbb99d94ab8ce286129b7cbfc80509fc55bf0c73916889a09"
+  },
+  "nodeGroups": [],
+  "id": "xaQpXWUiLuI2NXVQ",
+  "tags": []
+}
