@@ -1,0 +1,5 @@
+Automatización de facturación de horas por Telegram, Notion, Google Docs/Drive y Gmail
+
+El workflow principal es un bot de Telegram que centraliza tres operaciones del ciclo de facturación de horas trabajadas: generar una factura, aprobarla y enviarla al cliente, o rechazarla. Todo el estado del proceso (clientes, abonos, horas cargadas y facturas) se administra en bases de datos de Notion; el documento de factura se genera a partir de una plantilla de Google Docs y se distribuye por Gmail. Un agente de IA (Google Gemini) es quien arma los datos de la factura a partir de las planillas, sin calcular montos ni inventar información.
+
+Ademas de éste, hay dos sub-workflows adicionales que deben estar publicados, Tool_hora _trabajadas y Errores. El primero calcula las horas de oficina y horas extra de cada cliente según la búsqueda disparada por el AI Agent, funcionando como tool de éste. Y la segunda es un Error Workflow Global para alertar cualquier error en el workflow principal, no contemplado por el manejo de errores de los nodos.
